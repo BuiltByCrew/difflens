@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diff Lens — Visual Text Comparator</title>
+  <meta name="description" content="Paste two versions of any text side-by-side and instantly see a color-coded visual diff highlighting every addition, deletion, and change.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://difflens.builtbycrew.online/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Diff Lens — Visual Text Comparator">
+  <meta property="og:description" content="Paste two versions of any text side-by-side and instantly see a color-coded visual diff highlighting every addition, deletion, and change.">
+  <meta property="og:url" content="https://difflens.builtbycrew.online/">
+  <meta property="og:site_name" content="BuiltByCrew">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Diff Lens — Visual Text Comparator">
+  <meta name="twitter:description" content="Paste two versions of any text side-by-side and instantly see a color-coded visual diff highlighting every addition, deletion, and change.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231a1a1a'/%3E%3Crect x='4' y='4' width='10' height='3' fill='%23e63329'/%3E%3Crect x='4' y='10' width='14' height='3' fill='%23f0ede6' opacity='0.4'/%3E%3Crect x='4' y='16' width='12' height='3' fill='%234caf7d'/%3E%3Crect x='4' y='22' width='16' height='3' fill='%23f0ede6' opacity='0.4'/%3E%3Crect x='18' y='4' width='10' height='3' fill='%23f0ede6' opacity='0.4'/%3E%3Crect x='18' y='10' width='8' height='3' fill='%234caf7d'/%3E%3Crect x='18' y='16' width='12' height='3' fill='%23f0ede6' opacity='0.4'/%3E%3Crect x='18' y='22' width='6' height='3' fill='%23e63329'/%3E%3C/svg%3E">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700;900&family=Roboto+Mono:wght@400;500&display=swap');
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #1a1a1a;
+      --surface: #242424;
+      --surface2: #2e2e2e;
+      --text: #f0ede6;
+      --text-muted: #9a9590;
+      --accent: #e63329;
+      --add: #4caf7d;
+      --add-bg: rgba(76, 175, 125, 0.12);
+      --del: #e63329;
+      --del-bg: rgba(230, 51, 41, 0.12);
+      --unchanged: #f0ede6;
+      --unchanged-bg: transparent;
+      --border: #3a3a3a;
+      --line-num: #5a5550;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Roboto Condensed', 'Arial Narrow', Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      border-top: 6px solid var(--accent);
+      background: var(--bg);
+      padding: 20px 24px 16px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      animation: slideDown 0.4s ease both;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .header-brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-eyebrow {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    h1 span {
+      color: var(--accent);
+    }
+
+    .header-tagline {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0.01em;
+      max-width: 420px;
+    }
+
+    /* ── VIEW TOGGLE ── */
+    .view-toggle {
+      display: flex;
+      gap: 0;
+      border: 2px solid var(--border);
+      border-radius: 0;
+      overflow: hidden;
+      animation: fadeIn 0.5s 0.15s ease both;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .view-btn {
+      background: var(--surface);
+      color: var(--text-muted);
+      border: none;
+      padding: 8px 16px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      min-height: 44px;
+    }
+
+    .view-btn:active {
+      transform: scale(0.96);
+    }
+
+    .view-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .view-btn:not(.active):hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    /* ── MAIN LAYOUT ── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0 24px 24px;
+    }
+
+    /* ── INPUT SECTION ── */
+    .inputs-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+      animation: fadeIn 0.5s 0.2s ease both;
+    }
+
+    @media (max-width: 680px) {
+      .inputs-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .input-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+
+    .label-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+    }
+
+    .label-badge.original {
+      background: var(--del);
+      color: #fff;
+    }
+
+    .label-badge.revised {
+      background: var(--add);
+      color: #fff;
+    }
+
+    textarea {
+      width: 100%;
+      height: 200px;
+      background: var(--surface);
+      color: var(--text);
+      border: 2px solid var(--border);
+      border-radius: 0;
+      padding: 12px;
+      font-family: 'Roboto Mono', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      resize: vertical;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea::placeholder {
+      color: var(--text-muted);
+      opacity: 0.5;
+    }
+
+    /* ── ACTION BAR ── */
+    .action-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      animation: fadeIn 0.5s 0.3s ease both;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 18px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.08s;
+      min-height: 44px;
+      border-radius: 0;
+      white-space: nowrap;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .btn-primary:hover {
+      background: #c4251b;
+      border-color: #c4251b;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--text-muted);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border-color: transparent;
+    }
+
+    .btn-ghost:hover {
+      color: var(--text);
+    }
+
+    .btn-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    /* ── SUMMARY BAR ── */
+    .summary-bar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-top: 20px;
+      border: 2px solid var(--border);
+      overflow: hidden;
+      animation: fadeIn 0.5s 0.35s ease both;
+      min-height: 48px;
+    }
+
+    .summary-chip {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-align: center;
+      border-right: 2px solid var(--border);
+      transition: background 0.2s;
+    }
+
+    .summary-chip:last-child {
+      border-right: none;
+    }
+
+    .summary-chip.added {
+      color: var(--add);
+    }
+
+    .summary-chip.deleted {
+      color: var(--del);
+    }
+
+    .summary-chip.unchanged {
+      color: var(--text-muted);
+    }
+
+    .summary-num {
+      font-size: 20px;
+      font-weight: 900;
+      min-width: 24px;
+      display: inline-block;
+      transition: transform 0.2s;
+    }
+
+    .summary-num.bump {
+      animation: numBump 0.25s ease;
+    }
+
+    @keyframes numBump {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+
+    /* ── DIFF OUTPUT ── */
+    .diff-section {
+      margin-top: 16px;
+      border: 2px solid var(--border);
+      overflow: hidden;
+      animation: fadeIn 0.5s 0.4s ease both;
+    }
+
+    .diff-header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .diff-header-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+    }
+
+    .diff-copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      border-radius: 0;
+      white-space: nowrap;
+      min-height: 44px;
+    }
+
+    .diff-copy-btn:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .diff-copy-btn:active {
+      transform: scale(0.96);
+    }
+
+    .diff-copy-btn.copied {
+      color: var(--add);
+      border-color: var(--add);
+    }
+
+    /* ── SIDE-BY-SIDE DIFF ── */
+    .diff-side-by-side {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      overflow-x: auto;
+    }
+
+    .diff-col {
+      min-width: 0;
+    }
+
+    .diff-col:first-child {
+      border-right: 2px solid var(--border);
+    }
+
+    .diff-col-header {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .diff-col-header.original { color: var(--del); }
+    .diff-col-header.revised  { color: var(--add); }
+
+    .diff-col-body {
+      font-family: 'Roboto Mono', 'Courier New', monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+    }
+
+    .diff-line {
+      display: flex;
+      align-items: stretch;
+      transition: background 0.15s;
+    }
+
+    .diff-line:hover {
+      filter: brightness(1.15);
+    }
+
+    .diff-line.add    { background: var(--add-bg); }
+    .diff-line.del    { background: var(--del-bg); }
+    .diff-line.empty  { background: rgba(0,0,0,0.1); }
+
+    .line-num {
+      flex-shrink: 0;
+      width: 42px;
+      padding: 2px 8px 2px 4px;
+      text-align: right;
+      color: var(--line-num);
+      font-size: 11px;
+      border-right: 2px solid var(--border);
+      user-select: none;
+      background: var(--surface);
+    }
+
+    .line-marker {
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+      padding: 2px 0;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .diff-line.add  .line-marker { color: var(--add); }
+    .diff-line.del  .line-marker { color: var(--del); }
+    .diff-line.same .line-marker { color: transparent; }
+
+    .line-text {
+      flex: 1;
+      padding: 2px 8px;
+      white-space: pre;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
+      min-height: 22px;
+    }
+
+    .diff-line.add  .line-text { color: var(--add); }
+    .diff-line.del  .line-text { color: var(--del); }
+    .diff-line.same .line-text { color: var(--text); opacity: 0.7; }
+    .diff-line.empty .line-text { opacity: 0; }
+
+    /* ── UNIFIED DIFF ── */
+    .diff-unified {
+      font-family: 'Roboto Mono', 'Courier New', monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+
+    .unified-line {
+      display: flex;
+      align-items: stretch;
+      transition: background 0.15s;
+    }
+
+    .unified-line:hover {
+      filter: brightness(1.12);
+    }
+
+    .unified-line.add { background: var(--add-bg); }
+    .unified-line.del { background: var(--del-bg); }
+
+    .unified-nums {
+      flex-shrink: 0;
+      display: flex;
+      border-right: 2px solid var(--border);
+      background: var(--surface);
+    }
+
+    .unified-num {
+      width: 40px;
+      padding: 2px 6px 2px 4px;
+      text-align: right;
+      color: var(--line-num);
+      font-size: 11px;
+      user-select: none;
+    }
+
+    .unified-num + .unified-num {
+      border-left: 1px solid var(--border);
+    }
+
+    .unified-marker {
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+      padding: 2px 0;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .unified-line.add .unified-marker { color: var(--add); }
+    .unified-line.del .unified-marker { color: var(--del); }
+
+    .unified-text {
+      flex: 1;
+      padding: 2px 8px;
+      white-space: pre;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-height: 22px;
+    }
+
+    .unified-line.add  .unified-text { color: var(--add); }
+    .unified-line.del  .unified-text { color: var(--del); }
+    .unified-line.same .unified-text { color: var(--text); opacity: 0.7; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.3;
+      animation: pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(1.05); }
+    }
+
+    .empty-text {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* ── DIVIDER ── */
+    .divider {
+      width: 1px;
+      background: var(--border);
+      align-self: stretch;
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(0);
+      background: var(--add);
+      color: #fff;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-radius: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 999;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-8px);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      padding: 16px 24px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+      animation: fadeIn 0.5s 0.5s ease both;
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--accent);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 680px) {
+      header {
+        padding: 16px 16px 12px;
+      }
+
+      main {
+        padding: 0 16px 16px;
+      }
+
+      .diff-side-by-side {
+        grid-template-columns: 1fr;
+      }
+
+      .diff-col:first-child {
+        border-right: none;
+        border-bottom: 2px solid var(--border);
+      }
+
+      .summary-chip {
+        padding: 8px 10px;
+        gap: 4px;
+        font-size: 11px;
+      }
+
+      .summary-num {
+        font-size: 16px;
+      }
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-brand">
+      <span class="brand-eyebrow">BuiltByCrew / Tools</span>
+      <h1>Diff<span>&nbsp;Lens</span></h1>
+      <p class="header-tagline">Visual text comparator — paste two versions, see every change instantly</p>
+    </div>
+    <div class="view-toggle" role="group" aria-label="View mode">
+      <button class="view-btn active" id="btnSide" aria-pressed="true">Side by side</button>
+      <button class="view-btn" id="btnUnified" aria-pressed="false">Unified</button>
+    </div>
+  </header>
+
+  <main>
+
+    <div class="inputs-section">
+      <div class="input-panel">
+        <label class="input-label" for="textOriginal">
+          <span class="label-badge original">Original</span>
+          <span>Base version</span>
+        </label>
+        <textarea
+          id="textOriginal"
+          placeholder="Paste your original text here…"
+          spellcheck="false"
+          aria-label="Original text"
+        ></textarea>
+      </div>
+      <div class="input-panel">
+        <label class="input-label" for="textRevised">
+          <span class="label-badge revised">Revised</span>
+          <span>Changed version</span>
+        </label>
+        <textarea
+          id="textRevised"
+          placeholder="Paste your revised text here…"
+          spellcheck="false"
+          aria-label="Revised text"
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-primary" id="btnCompare" aria-label="Run diff comparison">
+        <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M3 4h14v2H3V4zm2 4h10v2H5V8zm-2 4h14v2H3v-2zm2 4h10v2H5v-2z"/>
+        </svg>
+        Compare
+      </button>
+      <button class="btn btn-secondary" id="btnSwap" aria-label="Swap original and revised">
+        <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M13 3l4 4-4 4V8H5V6h8V3zM7 17l-4-4 4-4v3h8v2H7v3z"/>
+        </svg>
+        Swap
+      </button>
+      <button class="btn btn-secondary" id="btnClear" aria-label="Clear all inputs">
+        <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M9 3h2l1 1h4v2H4V4h4L9 3zm-4 4h10l-1 10H6L5 7zm4 2v6h1V9H9zm3 0v6h1V9h-1z"/>
+        </svg>
+        Clear
+      </button>
+    </div>
+
+    <!-- Summary bar -->
+    <div class="summary-bar" role="status" aria-live="polite" aria-label="Diff summary">
+      <div class="summary-chip added" title="Lines added">
+        <span class="summary-num" id="numAdded">0</span>
+        <span>Added</span>
+      </div>
+      <div class="summary-chip deleted" title="Lines deleted">
+        <span class="summary-num" id="numDeleted">0</span>
+        <span>Deleted</span>
+      </div>
+      <div class="summary-chip unchanged" title="Lines unchanged">
+        <span class="summary-num" id="numUnchanged">0</span>
+        <span>Unchanged</span>
+      </div>
+    </div>
+
+    <!-- Diff output -->
+    <div class="diff-section" id="diffSection">
+      <div class="diff-header">
+        <span class="diff-header-title" id="diffHeaderTitle">Diff Output</span>
+        <button class="diff-copy-btn" id="btnCopyDiff" aria-label="Copy diff output to clipboard">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M8 2a2 2 0 00-2 2v1H5a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-1h1a2 2 0 002-2V6l-4-4H8zm0 2h5l3 3v7h-1V7a2 2 0 00-2-2H8V4zM5 7h8v10H5V7z"/>
+          </svg>
+          Copy
+        </button>
+      </div>
+      <div id="diffOutput">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+              <rect x="4" y="8" width="20" height="3" rx="1" fill="#e63329" opacity="0.6"/>
+              <rect x="4" y="14" width="16" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="4" y="20" width="18" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="4" y="26" width="20" height="3" rx="1" fill="#4caf7d" opacity="0.6"/>
+              <rect x="4" y="32" width="14" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="32" y="8" width="20" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="32" y="14" width="16" height="3" rx="1" fill="#4caf7d" opacity="0.6"/>
+              <rect x="32" y="20" width="18" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="32" y="26" width="14" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="32" y="32" width="20" height="3" rx="1" fill="#e63329" opacity="0.6"/>
+            </svg>
+          </div>
+          <p class="empty-text">Paste text above and click Compare</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    <span>Built by <a href="https://builtbycrew.online/" target="_blank" rel="noopener">BuiltByCrew</a> — a new app every day</span>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/BuiltByCrew/difflens" target="_blank" rel="noopener" aria-label="View source on GitHub">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:middle">
+        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+      </svg>
+    </a>
+    &nbsp;·&nbsp;
+    <a href="https://buymeacoffee.com/builtbycrew" target="_blank" rel="noopener">☕ Buy me a coffee</a>
+  </footer>
+
+  <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // ── State ──────────────────────────────────────────────────────────────
+      const STORAGE_KEY = 'appfactory_difflens_state';
+      let currentView = 'side'; // 'side' | 'unified'
+      let lastDiffResult = null;
+
+      // ── DOM refs ───────────────────────────────────────────────────────────
+      const textOriginal  = document.getElementById('textOriginal');
+      const textRevised   = document.getElementById('textRevised');
+      const btnCompare    = document.getElementById('btnCompare');
+      const btnSwap       = document.getElementById('btnSwap');
+      const btnClear      = document.getElementById('btnClear');
+      const btnSide       = document.getElementById('btnSide');
+      const btnUnified    = document.getElementById('btnUnified');
+      const btnCopyDiff   = document.getElementById('btnCopyDiff');
+      const diffOutput    = document.getElementById('diffOutput');
+      const diffHeaderTitle = document.getElementById('diffHeaderTitle');
+      const numAdded      = document.getElementById('numAdded');
+      const numDeleted    = document.getElementById('numDeleted');
+      const numUnchanged  = document.getElementById('numUnchanged');
+      const toast         = document.getElementById('toast');
+
+      // ── Restore state ──────────────────────────────────────────────────────
+      (() => {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const s = JSON.parse(saved);
+            if (s.original) textOriginal.value = s.original;
+            if (s.revised)  textRevised.value  = s.revised;
+            if (s.view)     currentView        = s.view;
+          }
+        } catch (_) {}
+      })();
+
+      const saveState = () => {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            original: textOriginal.value,
+            revised:  textRevised.value,
+            view:     currentView,
+          }));
+        } catch (_) {}
+      };
+
+      // ── Toast ──────────────────────────────────────────────────────────────
+      let toastTimer = null;
+      const showToast = (msg, color = 'var(--add)') => {
+        toast.textContent = msg;
+        toast.style.background = color;
+        toast.classList.add('visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('visible'), 2000);
+      };
+
+      // ── Animated number roll ───────────────────────────────────────────────
+      const animateNum = (el, target) => {
+        const start = parseInt(el.textContent, 10) || 0;
+        if (start === target) return;
+        const dur = 300;
+        const t0 = performance.now();
+        const step = (now) => {
+          const p = Math.min((now - t0) / dur, 1);
+          const ease = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(start + (target - start) * ease);
+          if (p < 1) requestAnimationFrame(step);
+          else {
+            el.textContent = target;
+            el.classList.add('bump');
+            setTimeout(() => el.classList.remove('bump'), 300);
+          }
+        };
+        requestAnimationFrame(step);
+      };
+
+      // ── Myers diff (LCS-based) ─────────────────────────────────────────────
+      // Returns array of ops: { type: 'equal'|'insert'|'delete', value: string }
+      const computeDiff = (aLines, bLines) => {
+        // LCS via dynamic programming
+        const m = aLines.length;
+        const n = bLines.length;
+
+        // Use Hirschberg-style approach for memory: build LCS length table
+        // For reasonable sizes (up to ~5000 lines) this is fine
+        const dp = new Uint32Array((m + 1) * (n + 1));
+        const idx = (i, j) => i * (n + 1) + j;
+
+        for (let i = m - 1; i >= 0; i--) {
+          for (let j = n - 1; j >= 0; j--) {
+            if (aLines[i] === bLines[j]) {
+              dp[idx(i, j)] = dp[idx(i + 1, j + 1)] + 1;
+            } else {
+              const down  = dp[idx(i + 1, j)];
+              const right = dp[idx(i, j + 1)];
+              dp[idx(i, j)] = down > right ? down : right;
+            }
+          }
+        }
+
+        // Traceback to get diff ops
+        const ops = [];
+        let i = 0, j = 0;
+        while (i < m && j < n) {
+          if (aLines[i] === bLines[j]) {
+            ops.push({ type: 'equal', value: aLines[i] });
+            i++; j++;
+          } else if (dp[idx(i + 1, j)] >= dp[idx(i, j + 1)]) {
+            ops.push({ type: 'delete', value: aLines[i] });
+            i++;
+          } else {
+            ops.push({ type: 'insert', value: bLines[j] });
+            j++;
+          }
+        }
+        while (i < m) { ops.push({ type: 'delete', value: aLines[i++] }); }
+        while (j < n) { ops.push({ type: 'insert', value: bLines[j++] }); }
+
+        return ops;
+      };
+
+      // ── Build side-by-side view ────────────────────────────────────────────
+      const buildSideBySide = (ops) => {
+        // Pair up deletions with insertions
+        const leftLines  = []; // { type, text }
+        const rightLines = []; // { type, text }
+
+        let i = 0;
+        while (i < ops.length) {
+          const op = ops[i];
+          if (op.type === 'equal') {
+            leftLines.push({ type: 'same', text: op.value });
+            rightLines.push({ type: 'same', text: op.value });
+            i++;
+          } else if (op.type === 'delete') {
+            // Look ahead for matching inserts
+            let j = i + 1;
+            while (j < ops.length && ops[j].type === 'delete') j++;
+            const delGroup = ops.slice(i, j);
+            let k = j;
+            while (k < ops.length && ops[k].type === 'insert') k++;
+            const insGroup = ops.slice(j, k);
+
+            const maxLen = Math.max(delGroup.length, insGroup.length);
+            for (let x = 0; x < maxLen; x++) {
+              leftLines.push(x < delGroup.length
+                ? { type: 'del', text: delGroup[x].value }
+                : { type: 'empty', text: '' });
+              rightLines.push(x < insGroup.length
+                ? { type: 'add', text: insGroup[x].value }
+                : { type: 'empty', text: '' });
+            }
+            i = k;
+          } else {
+            // pure insert with no preceding delete
+            leftLines.push({ type: 'empty', text: '' });
+            rightLines.push({ type: 'add', text: op.value });
+            i++;
+          }
+        }
+
+        const frag = document.createDocumentFragment();
+        const container = document.createElement('div');
+        container.className = 'diff-side-by-side';
+
+        const buildCol = (lines, side) => {
+          const col = document.createElement('div');
+          col.className = 'diff-col';
+
+          const hdr = document.createElement('div');
+          hdr.className = `diff-col-header ${side}`;
+          hdr.textContent = side === 'original' ? 'Original' : 'Revised';
+          col.appendChild(hdr);
+
+          const body = document.createElement('div');
+          body.className = 'diff-col-body';
+
+          let lineNum = 0;
+          lines.forEach((line) => {
+            const row = document.createElement('div');
+            row.className = `diff-line ${line.type}`;
+
+            const numEl = document.createElement('span');
+            numEl.className = 'line-num';
+            if (line.type !== 'empty') {
+              lineNum++;
+              numEl.textContent = lineNum;
+            }
+
+            const markerEl = document.createElement('span');
+            markerEl.className = 'line-marker';
+            markerEl.setAttribute('aria-hidden', 'true');
+            if (line.type === 'add')  markerEl.textContent = '+';
+            else if (line.type === 'del') markerEl.textContent = '−';
+            else markerEl.textContent = ' ';
+
+            const textEl = document.createElement('span');
+            textEl.className = 'line-text';
+            textEl.textContent = line.text;
+
+            row.appendChild(numEl);
+            row.appendChild(markerEl);
+            row.appendChild(textEl);
+            body.appendChild(row);
+          });
+
+          col.appendChild(body);
+          return col;
+        };
+
+        container.appendChild(buildCol(leftLines, 'original'));
+        container.appendChild(buildCol(rightLines, 'revised'));
+        frag.appendChild(container);
+        return frag;
+      };
+
+      // ── Build unified view ─────────────────────────────────────────────────
+      const buildUnified = (ops) => {
+        const frag = document.createDocumentFragment();
+        const container = document.createElement('div');
+        container.className = 'diff-unified';
+
+        let leftNum = 0, rightNum = 0;
+
+        ops.forEach((op) => {
+          const row = document.createElement('div');
+          row.className = `unified-line ${op.type === 'equal' ? 'same' : op.type === 'insert' ? 'add' : 'del'}`;
+
+          const nums = document.createElement('span');
+          nums.className = 'unified-nums';
+          nums.setAttribute('aria-hidden', 'true');
+
+          const n1 = document.createElement('span');
+          n1.className = 'unified-num';
+          const n2 = document.createElement('span');
+          n2.className = 'unified-num';
+
+          if (op.type === 'equal') {
+            leftNum++; rightNum++;
+            n1.textContent = leftNum;
+            n2.textContent = rightNum;
+          } else if (op.type === 'delete') {
+            leftNum++;
+            n1.textContent = leftNum;
+            n2.textContent = '';
+          } else {
+            rightNum++;
+            n1.textContent = '';
+            n2.textContent = rightNum;
+          }
+
+          nums.appendChild(n1);
+          nums.appendChild(n2);
+
+          const marker = document.createElement('span');
+          marker.className = 'unified-marker';
+          if (op.type === 'insert') marker.textContent = '+';
+          else if (op.type === 'delete') marker.textContent = '−';
+          else marker.textContent = ' ';
+
+          const text = document.createElement('span');
+          text.className = 'unified-text';
+          text.textContent = op.value;
+
+          row.appendChild(nums);
+          row.appendChild(marker);
+          row.appendChild(text);
+          container.appendChild(row);
+        });
+
+        frag.appendChild(container);
+        return frag;
+      };
+
+      // ── Format plain-text diff for copy ───────────────────────────────────
+      const formatPlainDiff = (ops) => {
+        return ops.map((op) => {
+          if (op.type === 'equal')  return `  ${op.value}`;
+          if (op.type === 'insert') return `+ ${op.value}`;
+          return `- ${op.value}`;
+        }).join('\n');
+      };
+
+      // ── Run comparison ─────────────────────────────────────────────────────
+      const runCompare = () => {
+        const aText = textOriginal.value;
+        const bText = textRevised.value;
+
+        if (!aText.trim() && !bText.trim()) {
+          showToast('Paste some text first', 'var(--del)');
+          return;
+        }
+
+        const aLines = aText === '' ? [] : aText.split('\n');
+        const bLines = bText === '' ? [] : bText.split('\n');
+
+        // Guard against very large inputs (> 5000 lines)
+        if (aLines.length > 5000 || bLines.length > 5000) {
+          showToast('Input too large (max 5000 lines)', 'var(--del)');
+          return;
+        }
+
+        const ops = computeDiff(aLines, bLines);
+        lastDiffResult = ops;
+
+        // Compute stats
+        const added     = ops.filter(o => o.type === 'insert').length;
+        const deleted   = ops.filter(o => o.type === 'delete').length;
+        const unchanged = ops.filter(o => o.type === 'equal').length;
+
+        animateNum(numAdded, added);
+        animateNum(numDeleted, deleted);
+        animateNum(numUnchanged, unchanged);
+
+        renderDiff(ops);
+        saveState();
+      };
+
+      // ── Render diff into DOM ───────────────────────────────────────────────
+      const renderDiff = (ops) => {
+        if (!ops || ops.length === 0) {
+          diffOutput.innerHTML = '';
+          const es = document.createElement('div');
+          es.className = 'empty-state';
+          es.innerHTML = '<p class="empty-text">No differences found — texts are identical</p>';
+          diffOutput.appendChild(es);
+          diffHeaderTitle.textContent = 'Diff Output — identical';
+          return;
+        }
+
+        const frag = currentView === 'side'
+          ? buildSideBySide(ops)
+          : buildUnified(ops);
+
+        // Fade transition
+        diffOutput.style.opacity = '0';
+        diffOutput.style.transition = 'opacity 0.15s';
+        requestAnimationFrame(() => {
+          diffOutput.innerHTML = '';
+          diffOutput.appendChild(frag);
+          requestAnimationFrame(() => {
+            diffOutput.style.opacity = '1';
+          });
+        });
+
+        diffHeaderTitle.textContent = currentView === 'side'
+          ? 'Diff Output — Side by Side'
+          : 'Diff Output — Unified';
+      };
+
+      // ── View toggle ────────────────────────────────────────────────────────
+      const setView = (view) => {
+        currentView = view;
+        btnSide.classList.toggle('active', view === 'side');
+        btnUnified.classList.toggle('active', view === 'unified');
+        btnSide.setAttribute('aria-pressed', String(view === 'side'));
+        btnUnified.setAttribute('aria-pressed', String(view === 'unified'));
+        if (lastDiffResult) renderDiff(lastDiffResult);
+        saveState();
+      };
+
+      // ── Copy diff ──────────────────────────────────────────────────────────
+      const copyDiff = async () => {
+        if (!lastDiffResult) {
+          showToast('Run a comparison first', 'var(--del)');
+          return;
+        }
+        const text = formatPlainDiff(lastDiffResult);
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (_) {
+          // fallback
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        btnCopyDiff.classList.add('copied');
+        btnCopyDiff.textContent = '✓ Copied';
+        showToast('Diff copied to clipboard');
+        setTimeout(() => {
+          btnCopyDiff.classList.remove('copied');
+          btnCopyDiff.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M8 2a2 2 0 00-2 2v1H5a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-1h1a2 2 0 002-2V6l-4-4H8zm0 2h5l3 3v7h-1V7a2 2 0 00-2-2H8V4zM5 7h8v10H5V7z"/>
+            </svg>
+            Copy`;
+        }, 2000);
+      };
+
+      // ── Event listeners ────────────────────────────────────────────────────
+      btnCompare.addEventListener('click', runCompare);
+      btnSide.addEventListener('click', () => setView('side'));
+      btnUnified.addEventListener('click', () => setView('unified'));
+      btnCopyDiff.addEventListener('click', copyDiff);
+
+      btnSwap.addEventListener('click', () => {
+        const tmp = textOriginal.value;
+        textOriginal.value = textRevised.value;
+        textRevised.value = tmp;
+        showToast('Inputs swapped');
+        if (lastDiffResult) runCompare();
+        saveState();
+      });
+
+      btnClear.addEventListener('click', () => {
+        textOriginal.value = '';
+        textRevised.value = '';
+        lastDiffResult = null;
+        animateNum(numAdded, 0);
+        animateNum(numDeleted, 0);
+        animateNum(numUnchanged, 0);
+        diffOutput.innerHTML = '';
+        const es = document.createElement('div');
+        es.className = 'empty-state';
+        es.innerHTML = `
+          <div class="empty-icon">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+              <rect x="4" y="8" width="20" height="3" rx="1" fill="#e63329" opacity="0.6"/>
+              <rect x="4" y="14" width="16" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="4" y="20" width="18" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="4" y="26" width="20" height="3" rx="1" fill="#4caf7d" opacity="0.6"/>
+              <rect x="4" y="32" width="14" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="32" y="8" width="20" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="32" y="14" width="16" height="3" rx="1" fill="#4caf7d" opacity="0.6"/>
+              <rect x="32" y="20" width="18" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="32" y="26" width="14" height="3" rx="1" fill="#f0ede6" opacity="0.25"/>
+              <rect x="32" y="32" width="20" height="3" rx="1" fill="#e63329" opacity="0.6"/>
+            </svg>
+          </div>
+          <p class="empty-text">Paste text above and click Compare</p>`;
+        diffOutput.appendChild(es);
+        diffHeaderTitle.textContent = 'Diff Output';
+        saveState();
+      });
+
+      // Keyboard shortcut: Ctrl/Cmd+Enter to compare
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          runCompare();
+        }
+      });
+
+      // Auto-save on textarea input
+      textOriginal.addEventListener('input', saveState);
+      textRevised.addEventListener('input', saveState);
+
+      // Restore view from saved state
+      if (currentView === 'unified') {
+        btnSide.classList.remove('active');
+        btnUnified.classList.add('active');
+        btnSide.setAttribute('aria-pressed', 'false');
+        btnUnified.setAttribute('aria-pressed', 'true');
+      }
+
+      // Auto-compare if we restored saved text
+      if (textOriginal.value || textRevised.value) {
+        runCompare();
+      }
+
+    })();
+  </script>
+</body>
+</html>
